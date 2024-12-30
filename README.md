@@ -23,13 +23,12 @@ The workflow for this script:
 
 3. Work through the pictures in the new album, and name any faces which should be named. For example, I have pictures of my kids playing football, so I name the kids, leaving the crowd unnamed. 
 
-4. Once you have the faces named, run the script again with the `--album-id` flag to hide the faces which aren't named.
+4. Once you have the faces named, run the script again with the `--album-id` flasg (using the UUID from previous step) to hide the faces which aren't named.
 
     ```
     python3 hide_faces_in_picture.py --album-id <album-id>
     ```
 
-    The script will hide all faces in the album which aren't named.
 
 > [!TIP]
 > If you want to ignore certain pictures, you can use the `--ignore-assets` flag to specify a comma-separated list of asset IDs to ignore. This was for an edge case where I had a few photos with elderly relatives I didn't know the names of, but also didn't want to hide. 
