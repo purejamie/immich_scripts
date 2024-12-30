@@ -32,3 +32,13 @@ The workflow for this script:
 
 > [!TIP]
 > If you want to ignore certain pictures, you can use the `--ignore-assets` flag to specify a comma-separated list of asset IDs to ignore. This was for an edge case where I had a few photos with elderly relatives I didn't know the names of, but also didn't want to hide. 
+
+#### Commandline flags
+
+| Flag | Description | Example |
+|------|-------------|---------|
+| `--face-count` | Creates an album containing pictures with at least this many unhidden faces | `--face-count 20` |
+| `--album-id` | The UUID of the album to process for hiding unnamed faces | `--album-id 123e4567-e89b-12d3-a456-426614174000` |
+| `--ignore-assets` | Comma-separated list of asset IDs to skip during processing | `--ignore-assets abc123,def456` |
+
+
