@@ -29,5 +29,5 @@ The workflow for this script:
 
     The script will hide all faces in the album which aren't named.
 
-    > [!TIP]
-    > If you want to ignore certain pictures, you can use the `--ignore-assets` flag to specify a comma-separated list of asset IDs to ignore. This was for an edge case where I had a few photos with elderly relatives I didn't know the names of, but also didn't want to hide. 
+> [!TIP]
+> If you want to ignore certain pictures, you can use the `--ignore-assets` flag to specify a comma-separated list of asset IDs to ignore. This was for an edge case where I had a few photos with elderly relatives I didn't know the names of, but also didn't want to hide. 
