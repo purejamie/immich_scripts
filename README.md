@@ -10,7 +10,7 @@ The workflow for this script:
 
 1. Use the env file to set up immich credentials (example in root folder) and ensure the dependancies are installed.
 
-2. Run the script with the `--face-count' flag only to create albums containing pictures with a large number of unhidden faces which aren't named. The number of faces is configurable (default is 10).
+2. Run the script with the `--face-count` flag **only** to create albums containing pictures with a large number of unhidden faces which aren't named. The number of faces is configurable (default is 10).
 
     ```
     python3 hide_faces_in_picture.py --face-count 20
