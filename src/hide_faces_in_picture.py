@@ -16,6 +16,8 @@ def parse_args():
                        help='Minimum number of faces to look for (default: 20)')
     parser.add_argument('--album-id', type=str,
                        help='Album ID to process for hiding unnamed faces')
+    parser.add_argument('--ignore-assets', type=str,
+                       help='Comma-separated list of asset IDs to ignore when hiding faces')
     return parser.parse_args()
 
 class Person(Base):
@@ -91,13 +93,18 @@ def create_album(server_address, api_key, asset_ids, face_count):
         print(f"Response: {response.text if 'response' in locals() else 'No response'}")
         return None
 
-def hide_unnamed_faces(session, album_id):
+def hide_unnamed_faces(session, album_id, ignore_assets=None):
     """Hide all faces in the album that are not named."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     failures_file = f"failed_faces_{timestamp}.txt"
     failures = []
     faces_hidden = 0
     faces_skipped = 0
+    
+    # Convert ignore_assets string to set for faster lookups
+    ignored_assets = set(id.strip() for id in ignore_assets.split(',')) if ignore_assets else set()
+    if ignored_assets:
+        print(f"Ignoring {len(ignored_assets)} assets: {', '.join(ignored_assets)}")
 
     query = (
         session.query(AlbumAsset.assetsId)
@@ -107,7 +114,12 @@ def hide_unnamed_faces(session, album_id):
     album_assets = query.all()
     print(f"Found {len(album_assets)} assets in album {album_id}")
     
-    for asset in album_assets:
+    for asset in album_assets:    
+        # Skip if asset is in ignore list
+        if str(asset[0]).strip() in ignored_assets:
+            print(f"Skipping asset {asset[0]} as it's in ignore list")
+            continue
+
         face_query = (
             session.query(AssetFace.personId, Person.name)
             .join(Person, AssetFace.personId == Person.id)
@@ -186,9 +198,8 @@ if immich_creds:
     
     with Session(engine) as session:
         if args.album_id:
-            # If album_id is provided, hide unnamed faces
             print(f"Processing album {args.album_id} for unnamed faces")
-            hide_unnamed_faces(session, args.album_id)
+            hide_unnamed_faces(session, args.album_id, args.ignore_assets)
         else:
             # Create new album with face detection
             asset_ids = find_assets_with_faces(session, args.face_count)
