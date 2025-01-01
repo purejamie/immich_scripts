@@ -9,10 +9,12 @@ import uuid
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Find similar faces in Immich')
-    parser.add_argument('--name', type=str, required=True,
+    parser.add_argument('--name', type=str, 
                        help='Name of the person to find similar faces to')
     parser.add_argument('--min-similarity', type=float, default=0.0,
                        help='Minimum similarity score (0.0 to 1.0, default: 0.0)')
+    parser.add_argument('--load-json', type=str,
+                       help='Path to an existing JSON file to load')
     return parser.parse_args()
 
 def create_album(server_address: str, api_key: str, asset_ids: List[str], name: str) -> str:
@@ -66,17 +68,17 @@ def find_similar_faces(cur, target_name: str, target_embedding: List[float], lim
     """, (target_name, target_embedding, target_name, limit))
     return cur.fetchall()
 
-def get_target_face_embedding(cur, target_name: str) -> List[float]:
-    """Get the face embedding for a specific person"""
+def get_target_face_info(cur, target_name: str) -> Dict[str, Any]:
+    """Get the face ID and embedding for a specific person"""
     cur.execute("""
-        SELECT fs.embedding
+        SELECT p.id as face_id, fs.embedding
         FROM face_search fs
         JOIN person p ON fs."faceId" = p."faceAssetId"
         WHERE p.name = %s
         LIMIT 1
     """, (target_name,))
     result = cur.fetchone()
-    return result['embedding'] if result else None
+    return result if result else None
 
 def get_person_assets(cur, similar_faces: List[Dict]) -> List[Dict]:
     """Get all assets associated with each similar face"""
@@ -127,7 +129,7 @@ def update_asset_description(server_address: str, api_key: str, asset_id: str, p
         response = requests.put(asset_url, headers=headers, data=payload)
         # response = requests.get(asset_url, headers=headers)
         response.raise_for_status()
-        print(response.text)
+        # print(response.text)
         return True
     except requests.exceptions.RequestException as e:
         print(f"Failed to update asset {asset_id}: {e}")
@@ -159,11 +161,126 @@ def create_output_json(input_name: str, face_id: str, album_name: str, album_id:
         json.dump(output_data, json_file, indent=4)
     print(f"Output JSON file created: {input_name}_similar_faces.json")
 
+def load_json_file(file_path: str) -> Dict[str, Any]:
+    """Load a JSON file into a data structure."""
+    try:
+        with open(file_path, 'r') as json_file:
+            data = json.load(json_file)
+            print(f"Loaded JSON file: {file_path}")
+            return data
+    except FileNotFoundError:
+        print(f"Error: File not found - {file_path}")
+    except json.JSONDecodeError:
+        print(f"Error: Failed to decode JSON - {file_path}")
+    return {}
+
+def get_album_assets(server_address: str, api_key: str, album_id: str) -> List[str]:
+    """Retrieve the asset IDs from an album in Immich."""
+    album_url = f"{server_address}/api/albums/{album_id}"
+    
+    headers = {
+        'x-api-key': api_key,
+        'Accept': 'application/json'
+    }
+
+    try:
+        response = requests.get(album_url, headers=headers)
+        response.raise_for_status()
+        album_data = response.json()
+        asset_ids = [asset['id'] for asset in album_data.get('assets', [])]
+        return asset_ids
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to retrieve album {album_id}: {e}")
+        print(f"Response: {response.text if 'response' in locals() else 'No response'}")
+        return []
+
+def get_person_name(server_address: str, api_key: str, person_id: str) -> str:
+    """Retrieve the name of a person using the Immich API."""
+    person_url = f"{server_address}/api/people/{person_id}"
+    
+    headers = {
+        'x-api-key': api_key,
+        'Accept': 'application/json'
+    }
+
+    try:
+        response = requests.get(person_url, headers=headers)
+        response.raise_for_status()
+        person_data = response.json()
+        return person_data.get('name', '')
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to retrieve person ID {person_id}: {e}")
+        print(f"Response: {response.text if 'response' in locals() else 'No response'}")
+        return ''
+
+def merge_person(server_address: str, api_key: str, main_person_id: str, similar_person_id: str) -> bool:
+    """Merge a similar person into the main person using the Immich API."""
+    merge_url = f"{server_address}/api/people/{main_person_id}/merge"
+    
+    headers = {
+        'x-api-key': api_key,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+
+    payload = json.dumps({
+        "ids": [similar_person_id]
+    })
+
+    try:
+        response = requests.post(merge_url, headers=headers, data=payload)
+        response.raise_for_status()
+        print(f"Successfully merged person ID {similar_person_id} into {main_person_id}")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to merge person ID {similar_person_id} into {main_person_id}: {e}")
+        print(f"Response: {response.text if 'response' in locals() else 'No response'}")
+        return False
+
+def check_and_merge_faces(json_data: Dict[str, Any], album_asset_ids: List[str], server_address: str, api_key: str) -> None:
+    """Check if asset IDs from the JSON data exist in the album and merge face IDs."""
+    main_face_id = json_data['input_person']['face_id']
+    
+    for asset in json_data.get('assets', []):
+        asset_id = asset['asset_id']
+        similar_face_id = asset['similar_face_id']
+        
+        if asset_id in album_asset_ids:
+            # Check if the similar face already has a name
+            similar_person_name = get_person_name(server_address, api_key, similar_face_id)
+            if not similar_person_name:
+                print(f"Asset ID {asset_id} exists in the album. Merging face ID {similar_face_id} into {main_face_id}.")
+                merge_person(server_address, api_key, main_face_id, similar_face_id)
+            else:
+                print(f"Skipping merge for face ID {similar_face_id} as it already has a name: {similar_person_name}")
+        else:
+            print(f"Asset ID {asset_id} does not exist in the album.")
+
 def main():
     args = parse_args()
     
     if args.min_similarity < 0.0 or args.min_similarity > 1.0:
         print("Error: Minimum similarity must be between 0.0 and 1.0")
+        return
+
+    # Load JSON file if provided
+    if args.load_json:
+        data = load_json_file(args.load_json)
+        if data:
+            print("Data loaded from JSON:")
+            print(json.dumps(data, indent=4))
+            
+            # Get album assets and check against JSON data
+            immich_creds = test_connection()
+            if not immich_creds:
+                return
+
+            IMMICH_SERVER_ADDRESS = immich_creds["IMMICH_SERVER_ADDRESS"]
+            IMMICH_API_KEY = immich_creds["IMMICH_API_KEY"]
+            album_id = data['album']['uuid']
+            
+            album_asset_ids = get_album_assets(IMMICH_SERVER_ADDRESS, IMMICH_API_KEY, album_id)
+            check_and_merge_faces(data, album_asset_ids, IMMICH_SERVER_ADDRESS, IMMICH_API_KEY)
         return
 
     immich_creds = test_connection()
@@ -190,9 +307,12 @@ def main():
         )
         
         with conn.cursor() as cur:
-            target_embedding = get_target_face_embedding(cur, args.name)
-            if not target_embedding:
-                raise ValueError(f"No face embedding found for {args.name}")
+            target_info = get_target_face_info(cur, args.name)
+            if not target_info:
+                raise ValueError(f"No face information found for {args.name}")
+
+            face_id = target_info['face_id']
+            target_embedding = target_info['embedding']
 
             similar_faces = find_similar_faces(cur, args.name, target_embedding)
             results = get_person_assets(cur, similar_faces)
@@ -205,7 +325,7 @@ def main():
             for person in results:
                 person_id = person['person_id']
                 similarity = person['cosine_similarity']
-                url = f"https://photos.bakernet.casa/people/{person_id}"
+                url = f"{IMMICH_SERVER_ADDRESS}/people/{person_id}"
                 print(f"{person_id}\t{url}\t{similarity:.4f}")
             
             # Collect all asset IDs and update their descriptions
@@ -217,13 +337,13 @@ def main():
                         "asset_id": asset_id,
                         "similar_face_id": person_id
                     })
-                    # Update the asset description with the person URL
-                    update_asset_description(
-                        IMMICH_SERVER_ADDRESS,
-                        IMMICH_API_KEY,
-                        asset_id,
-                        person_id
-                    )
+            #         # Update the asset description with the person URL
+            #         update_asset_description(
+            #             IMMICH_SERVER_ADDRESS,
+            #             IMMICH_API_KEY,
+            #             asset_id,
+            #             person_id
+            #         )
             
             # Create album if we have assets
             album_id = None
@@ -242,7 +362,7 @@ def main():
             # Create the output JSON file
             create_output_json(
                 input_name=args.name,
-                face_id=target_embedding,  # Assuming face_id is part of the embedding or retrieved separately
+                face_id=face_id,  # Use the correct face ID
                 album_name=f"{args.name} - similar pictures",
                 album_id=album_id,
                 assets=all_asset_ids

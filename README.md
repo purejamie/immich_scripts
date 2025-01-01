@@ -1,6 +1,10 @@
 # Immich Scripts
 A set of helper scripts written to help with the import and management of large photo collections.
 
+> [!WARNING]
+> Use these scripts at your own risk - I've written them for my own use, and while they've worked for me, I can't guarantee they'll work for you.
+> If you find these useful, and find a bug/improvement, open an issue. 
+
 ## hide_faces_in_picture.py
 This script does two things:
 - creates albums containing pictures with a large number of unhidden faces (configurable)
@@ -21,17 +25,13 @@ The workflow for this script:
     The script will output a summary and the UUID of the newly created album (this can also be found in the album URL in Immich).
 
 
-3. Work through the pictures in the new album, and name any faces which should be named. For example, I have pictures of my kids playing football, so I name the kids, leaving the crowd unnamed. 
+3. Work through the pictures in the new album, and name any faces which should be named. For example, I have pictures of my kids playing football, so I name the kids, leaving the crowd unnamed. You can also just remove photos from the album if you don't want them to be processed.
 
 4. Once you have the faces named, run the script again with the `--album-id` flasg (using the UUID from previous step) to hide the faces which aren't named.
 
     ```
     python3 hide_faces_in_picture.py --album-id <album-id>
     ```
-
-
-> [!TIP]
-> If you want to ignore certain pictures, you can use the `--ignore-assets` flag to specify a comma-separated list of asset IDs to ignore. This was for an edge case where I had a few photos with elderly relatives I didn't know the names of, but also didn't want to hide. 
 
 #### Commandline flags
 
