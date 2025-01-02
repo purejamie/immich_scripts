@@ -183,7 +183,6 @@ if immich_creds:
                     IMMICH_SERVER_ADDRESS,
                     IMMICH_API_KEY,
                     asset_ids,
-                    args.face_count,
                     f"Pictures with {args.face_count} or more unhidden faces",
                     f"Automatically created album containing pictures with {args.face_count} or more unhidden faces"
                 )
