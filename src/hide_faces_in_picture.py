@@ -7,6 +7,7 @@ import argparse
 import requests
 import json
 from datetime import datetime
+from common import create_album
 
 Base = declarative_base()
 
@@ -66,32 +67,6 @@ def find_assets_with_faces(session, min_face_count):
     
     return [row[0] for row in results]
 
-def create_album(server_address, api_key, asset_ids, face_count):
-    """Create an album in Immich with the given assets."""
-    album_url = f"{server_address}/api/albums"
-    headers = {
-        'x-api-key': api_key,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-    }
-
-    payload = json.dumps({
-        "albumName": f"Pictures with {face_count} or more unhidden faces",
-        "assetIds": [str(id) for id in asset_ids],
-        "description": f"Automatically created album containing pictures with {face_count} or more unhidden faces"
-    })
-
-    try:
-        response = requests.post(album_url, headers=headers, data=payload)
-        response.raise_for_status()
-        album_data = response.json()
-        print(f"Album created successfully with {len(asset_ids)} assets")
-        print(f"Album ID: {album_data['id']}")
-        return album_data['id']  # Return just the ID string, not a set
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to create album: {e}")
-        print(f"Response: {response.text if 'response' in locals() else 'No response'}")
-        return None
 
 def hide_unnamed_faces(session, album_id, ignore_assets=None):
     """Hide all faces in the album that are not named."""
@@ -208,6 +183,8 @@ if immich_creds:
                     IMMICH_SERVER_ADDRESS,
                     IMMICH_API_KEY,
                     asset_ids,
-                    args.face_count
+                    args.face_count,
+                    f"Pictures with {args.face_count} or more unhidden faces",
+                    f"Automatically created album containing pictures with {args.face_count} or more unhidden faces"
                 )
         

@@ -2,6 +2,8 @@ import os
 import requests
 from dotenv import load_dotenv
 import psycopg2
+import json
+
 
 # Load environment variables from .env file in the parent directory
 env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -69,3 +71,46 @@ def test_connection():
         connection_success = False
 
     return credentials if connection_success else None
+
+def create_album(server_address, api_key, asset_ids, album_name, album_description):
+    """Create an album in Immich with the given assets."""
+    album_url = f"{server_address}/api/albums"
+    headers = {
+        'x-api-key': api_key,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+
+    payload = json.dumps({
+        "albumName": album_name,
+        "assetIds": [str(id) for id in asset_ids],
+        "description": album_description
+    })
+
+    try:
+        response = requests.post(album_url, headers=headers, data=payload)
+        response.raise_for_status()
+        album_data = response.json()
+        print(f"Album created successfully with {len(asset_ids)} assets")
+        print(f"Album ID: {album_data['id']}")
+        return album_data['id']  # Return just the ID string, not a set
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to create album: {e}")
+        print(f"Response: {response.text if 'response' in locals() else 'No response'}")
+        return None
+
+def get_assets_from_album(server_address, api_key, album_id):
+    album_url = f"{server_address}/api/albums/{album_id}"
+    headers = {
+        'x-api-key': api_key,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+
+    try:
+        response = requests.get(album_url, headers=headers)
+        response.raise_for_status()
+        return [asset['id'] for asset in response.json()['assets']]
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to get assets from album: {e}")
+        return None
