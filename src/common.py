@@ -114,3 +114,51 @@ def get_assets_from_album(server_address, api_key, album_id):
     except requests.exceptions.RequestException as e:
         print(f"Failed to get assets from album: {e}")
         return None
+
+def get_person_id(server_address: str, api_key: str, person_name: str) -> str:
+    """Retrieve the person ID by name using the Immich API."""
+    search_url = f"{server_address}/api/search/person?name={person_name}"
+    
+    headers = {
+        'x-api-key': api_key,
+        'Accept': 'application/json'
+    }
+
+    try:
+        response = requests.get(search_url, headers=headers)
+        response.raise_for_status()
+        person = response.json()
+        
+        if len(person) > 1:
+            print(f"Found multiple people with the name: {person_name}")
+            return ""
+        else: return person[0]['id']
+        
+        print(f"No person found with the name: {person_name}")
+        return ""
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to retrieve person data: {e}")
+        print(f"Response: {response.text if 'response' in locals() else 'No response'}")
+        return ""
+
+def merge_person(server_address: str, api_key: str, main_person_id: str, similar_person_id: str) -> bool:
+    """Merge a similar person into the main person using the Immich API."""
+    merge_url = f"{server_address}/api/people/{main_person_id}/merge"
+    
+    headers = {
+        'x-api-key': api_key,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+    payload = json.dumps({
+        "ids": [similar_person_id]
+    })
+    try:
+        response = requests.post(merge_url, headers=headers, data=payload)
+        response.raise_for_status()
+        print(f"Successfully merged person ID {similar_person_id} into {main_person_id}")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to merge person ID {similar_person_id} into {main_person_id}: {e}")
+        print(f"Response: {response.text if 'response' in locals() else 'No response'}")
+        return False
